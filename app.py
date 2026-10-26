@@ -95,4 +95,14 @@ Deliver high retention script pack in 6 sections:
 2. ⚡ The First 25-Second Retention Hook (mid-action start, visual hook)
 3. 📜 Full Timed Script in {lang} matching {dur}
 4. 🎥 Scene-by-Scene Visual Prompts matching {art_style}
-5.
+5. 🎵 Sound Design & Background Music
+6. 🪝 The Next-Video Bait ({hook_end}) & SEO Tags
+"""
+            with st.spinner(f"Viral pack taiyar ho raha hai ({dur})..."):
+                result = run_prompt(keys, full_prompt)
+                
+            if result:
+                st.markdown(result)
+                st.download_button("📥 Download Viral Pack (.txt)", result, f"{topic[:20]}_viral_pack.txt", "text/plain")
+            else:
+                st.error("API keys ka quota reach ho chuka hai ya key invalid hai. 'Get Free API Key' par click karke fresh key dalein.")
