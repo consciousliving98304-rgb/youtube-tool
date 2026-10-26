@@ -21,8 +21,8 @@ if st.button("Generate Complete Video Pack"):
         try:
             genai.configure(api_key=api_key)
             
-            # Active current model
-            model = genai.GenerativeModel("gemini-2.5-flash")
+            # Updated to required model
+            model = genai.GenerativeModel("gemini-3.8-flash")
             
             with st.spinner("Writing script, audio cues, titles & SEO..."):
                 prompt = f"""
