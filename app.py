@@ -49,9 +49,9 @@ with tab2:
     col_t1, col_t2 = st.columns(2)
     with col_t1:
         trend_niche = st.selectbox("Category:", [
-            "Horror / Skinwalker Mystery with Cute/Innocent Kid Hook",
+            "Horror / Skinwalker Mystery with Cute Kid Hook",
             "Attractive Lead Character Drama / Suspense Encounter",
-            "Akbar-Birbal & Tenali Rama Unsolved Riddles (High Comments)",
+            "Akbar-Birbal & Tenali Rama Unsolved Riddles",
             "Mind-Bending Psychological Shorts with Plot Twist"
         ])
     with col_t2:
@@ -73,52 +73,7 @@ with tab2:
                 Output Language: {trend_lang}.
 
                 Strict Rules for Each Concept:
-                1. 👁️ The Visual Magnet (First 3 seconds visual: e.g., adorable innocent kid with big expressive eyes, striking attractive character, or spine-chilling visual hook).
-                2. ⏱️ 0-25 Seconds Retention Trap: Exact lines that freeze scrolling and make dropping off impossible.
-                3. 🌀 Mid-Story Loop: What sudden twist or mystery keeps them watching till the end.
-                4. ❓ Next-Video / Comment Bait Ending: An unsolved riddle, shocking cliffhanger, or funny twist where answer is promised in the NEXT video.
-                5. 🎵 Sound & SFX Trigger: Exact background music and sound cue.
-                """
-                res = call_gemini(keys_list, t_prompt)
-                if res:
-                    st.markdown(res)
-                else:
-                    st.error("API Key quota issue. Please check keys or generate a fresh key.")
-
-with tab1:
-    topic = st.text_input("Story Idea / Core Mystery:", placeholder="e.g. Masoom bacche ne aaine mein kuch dekha / Akbar ne pucha adbhoot sawal")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        video_type = st.selectbox("Video Format:", ["YouTube Shorts / Reel", "YouTube Long Video"])
-    with col2:
-        if video_type == "YouTube Shorts / Reel":
-            duration = st.selectbox("Duration:", ["30 Seconds (Fast hook)", "60 Seconds (Full retention story)"])
-        else:
-            duration = st.selectbox("Duration:", ["3 Minutes (Tight pacing)", "5 Minutes (Standard story)", "8-10 Minutes (Deep narrative)", "10+ Minutes (Documentary)"])
-
-    col3, col4 = st.columns(2)
-    with col3:
-        char_lead = st.selectbox("Magnet Lead Character:", [
-            "👶 Super-Cute / Innocent Expressive Child (High Emotional Attachment)",
-            "✨ Stunning / Attractive Mysterious Protagonist (High Visual Appeal)",
-            "👑 Sharp Witty Folk Characters (Birbal, Tenali Rama, Clever Villager)",
-            "🕵️ Gritty Detective / Haunted Survivor",
-            "✏️ Custom (Apna character type likhein)"
-        ])
-    with col4:
-        char_visual = st.selectbox("Visual Art Style:", [
-            "🎨 2D Expressive Cartoon Animation (Pixar/Anime mix)",
-            "🧸 3D Cute Pixar/Disney Style (High quality eyes & facial expressions)",
-            "🎬 Cinematic Hyper-Realistic (Real human drama look)",
-            "👤 Dark Noir Minimalist / Manga Silhouette"
-        ])
-
-    custom_char_detail = ""
-    if char_lead.startswith("✏️"):
-        custom_char_detail = st.text_input("Custom Character Details:", placeholder="e.g. 5 saal ki cute gudiya Ananya aur uska ajeeb dost")
-
-    col5, col6, col7 = st.columns(3)
-    with col5:
-        language = st.selectbox("Script Language:", [
-      
+                1. The Visual Magnet (First 3 seconds visual: e.g., adorable innocent kid with big expressive eyes, striking attractive character, or spine-chilling visual hook).
+                2. 0-25 Seconds Retention Trap: Exact lines that freeze scrolling and make dropping off impossible.
+                3. Mid-Story Loop: What sudden twist or mystery keeps them watching till the end.
+                4. Next-Video / Comment Bait Ending
