@@ -4,7 +4,7 @@ import google.generativeai as genai
 st.set_page_config(page_title="YouTube Creator Tool", layout="wide")
 st.title("🎬 YouTube Video Content Generator")
 
-# API Key input directly on screen
+# API Key input
 api_key = st.text_input("🔑 Enter your Gemini API Key:", type="password", placeholder="AIzaSy...")
 
 # Inputs
@@ -20,7 +20,9 @@ if st.button("Generate Complete Video Pack"):
     else:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            # Universal model name
+            model = genai.GenerativeModel("gemini-pro")
             
             with st.spinner("Writing script, audio cues, titles & SEO..."):
                 prompt = f"""
