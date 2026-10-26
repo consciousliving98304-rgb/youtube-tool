@@ -21,8 +21,19 @@ if st.button("Generate Complete Video Pack"):
         try:
             genai.configure(api_key=api_key)
             
-            # Universal model name
-            model = genai.GenerativeModel("gemini-pro")
+            # Find working model dynamically
+            available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            
+            chosen_model = None
+            for m in available_models:
+                if "1.5-flash" in m or "flash" in m:
+                    chosen_model = m
+                    break
+            
+            if not chosen_model and available_models:
+                chosen_model = available_models[0]
+            
+            model = genai.GenerativeModel(chosen_model)
             
             with st.spinner("Writing script, audio cues, titles & SEO..."):
                 prompt = f"""
