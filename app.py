@@ -1,61 +1,124 @@
 import streamlit as st
 import google.generativeai as genai
 
-st.set_page_config(page_title="YouTube Creator Tool", layout="wide")
-st.title("🎬 YouTube Video Content Generator")
+st.set_page_config(page_title="Viral YouTube Content Machine", layout="wide")
+st.title("🎬 Viral YouTube Retention Engine")
 
-# API Key input
-api_key = st.text_input("🔑 Enter your Gemini API Key:", type="password", placeholder="AIzaSy...")
+# Helper & API Key input
+col_k1, col_k2 = st.columns([3, 1])
+with col_k1:
+    api_key_input = st.text_input(
+        "🔑 Enter Gemini API Key(s):",
+        type="password",
+        placeholder="Key1, Key2 (Comma se alag karke daalein)",
+        help="Ek key ka quota khatam hone par agla automatic switch hoga."
+    )
+with col_k2:
+    st.write("")
+    st.write("")
+    st.link_button("➕ Get Free API Key", "https://aistudio.google.com/app/apikey")
 
-# Inputs
-topic = st.text_input("Video Topic / Idea:", placeholder="e.g. Haunted forest incident / Akbar Birbal witty story")
-video_type = st.selectbox("Video Format:", ["YouTube Long Video", "YouTube Shorts / Reel"])
-tone = st.selectbox("Style / Tone:", ["Storytelling / Casual", "Dark / Suspenseful / Horror", "Engaging & Energetic", "Educational & Serious"])
-
-if st.button("Generate Complete Video Pack"):
-    if not api_key:
-        st.error("Pehle apni Gemini API Key yahan enter karein!")
-    elif not topic:
-        st.warning("Pehle koi topic likhiye!")
-    else:
+def call_gemini(keys_list, prompt):
+    models_to_try = ["gemini-3.8-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+    for idx, current_key in enumerate(keys_list):
         try:
-            genai.configure(api_key=api_key)
-            
-            # Updated to required model
-            model = genai.GenerativeModel("gemini-3.8-flash")
-            
-            with st.spinner("Writing script, audio cues, titles & SEO..."):
-                prompt = f"""
-                You are an expert YouTube strategist, sound designer, and scriptwriter.
-                Format: {video_type}
-                Topic: {topic}
-                Tone: {tone}
-                Language: Hinglish (Hindi written in English alphabets) + English where appropriate.
-
-                Provide the output structured into these 6 sections:
-                1. 🎯 5 Viral Click-Worthy Titles (High CTR)
-                2. 🖼️ Thumbnail Concepts (Text overlay + Visual scene idea)
-                3. 📜 Full Script (with a strong 3-second hook, engaging body scenes, and Call to Action)
-                4. 🎥 Visual Cues (Scene-by-scene animation/image ideas to show on screen)
-                5. 🎵 Background Music & Sound Effects (SFX) Cues:
-                   - For each scene, specify exact Sound Effect (SFX) (e.g., footstep, door creak, heartbeat, swoosh).
-                   - Exact Background Music mood/genre.
-                   - Recommended YouTube Audio Library search terms (100% copyright-free).
-                6. 🔍 SEO Pack (Optimized Description, 15 relevant tags, and top 5 hashtags)
-                """
-                
-                response = model.generate_content(prompt)
-                output_text = response.text
-                
-                # Display output
-                st.markdown(output_text)
-                
-                # Download button
-                st.download_button(
-                    label="📥 Download Complete Script & Pack (.txt)",
-                    data=output_text,
-                    file_name=f"{topic.replace(' ', '_')[:25]}_pack.txt",
-                    mime="text/plain"
-                )
+            genai.configure(api_key=current_key)
+            for model_name in models_to_try:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    return response.text
+                except Exception as model_err:
+                    if "429" in str(model_err) or "quota" in str(model_err).lower():
+                        continue
+                    else:
+                        raise model_err
         except Exception as e:
-            st.error(f"Error: {e}")
+            if "quota" in str(e).lower() or "429" in str(e):
+                continue
+            else:
+                raise e
+    return None
+
+tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention-Engine Shorts Ideas"])
+
+with tab2:
+    st.subheader("🔥 Ultra-Viral Trending Concepts")
+    st.caption("Aise concepts jisme pehle 20-30 second viewer screen se palke na jhapka sake:")
+    
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        trend_niche = st.selectbox("Category:", [
+            "Horror / Skinwalker Mystery with Cute/Innocent Kid Hook",
+            "Attractive Lead Character Drama / Suspense Encounter",
+            "Akbar-Birbal & Tenali Rama Unsolved Riddles (High Comments)",
+            "Mind-Bending Psychological Shorts with Plot Twist"
+        ])
+    with col_t2:
+        trend_lang = st.selectbox("Language for Trend:", [
+            "Hinglish (Hindi in English letters)",
+            "Pure Hindi (हिंदी देवनागरी)",
+            "English (USA/Global Audience)"
+        ])
+        
+    if st.button("✨ Generate 5 Viral Retention Hooks"):
+        if not api_key_input:
+            st.error("Pehle apni Gemini API Key daalein!")
+        else:
+            keys_list = [k.strip() for k in api_key_input.split(",") if k.strip()]
+            with st.spinner("Viral psychology research chal rahi hai..."):
+                t_prompt = f"""
+                You are a master YouTube retention strategist and viral algorithm hacker.
+                Generate 5 high-retention concepts for niche: '{trend_niche}'.
+                Output Language: {trend_lang}.
+
+                Strict Rules for Each Concept:
+                1. 👁️ The Visual Magnet (First 3 seconds visual: e.g., adorable innocent kid with big expressive eyes, striking attractive character, or spine-chilling visual hook).
+                2. ⏱️ 0-25 Seconds Retention Trap: Exact lines that freeze scrolling and make dropping off impossible.
+                3. 🌀 Mid-Story Loop: What sudden twist or mystery keeps them watching till the end.
+                4. ❓ Next-Video / Comment Bait Ending: An unsolved riddle, shocking cliffhanger, or funny twist where answer is promised in the NEXT video.
+                5. 🎵 Sound & SFX Trigger: Exact background music and sound cue.
+                """
+                res = call_gemini(keys_list, t_prompt)
+                if res:
+                    st.markdown(res)
+                else:
+                    st.error("API Key quota issue. Please check keys or generate a fresh key.")
+
+with tab1:
+    topic = st.text_input("Story Idea / Core Mystery:", placeholder="e.g. Masoom bacche ne aaine mein kuch dekha / Akbar ne pucha adbhoot sawal")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        video_type = st.selectbox("Video Format:", ["YouTube Shorts / Reel", "YouTube Long Video"])
+    with col2:
+        if video_type == "YouTube Shorts / Reel":
+            duration = st.selectbox("Duration:", ["30 Seconds (Fast hook)", "60 Seconds (Full retention story)"])
+        else:
+            duration = st.selectbox("Duration:", ["3 Minutes (Tight pacing)", "5 Minutes (Standard story)", "8-10 Minutes (Deep narrative)", "10+ Minutes (Documentary)"])
+
+    col3, col4 = st.columns(2)
+    with col3:
+        char_lead = st.selectbox("Magnet Lead Character:", [
+            "👶 Super-Cute / Innocent Expressive Child (High Emotional Attachment)",
+            "✨ Stunning / Attractive Mysterious Protagonist (High Visual Appeal)",
+            "👑 Sharp Witty Folk Characters (Birbal, Tenali Rama, Clever Villager)",
+            "🕵️ Gritty Detective / Haunted Survivor",
+            "✏️ Custom (Apna character type likhein)"
+        ])
+    with col4:
+        char_visual = st.selectbox("Visual Art Style:", [
+            "🎨 2D Expressive Cartoon Animation (Pixar/Anime mix)",
+            "🧸 3D Cute Pixar/Disney Style (High quality eyes & facial expressions)",
+            "🎬 Cinematic Hyper-Realistic (Real human drama look)",
+            "👤 Dark Noir Minimalist / Manga Silhouette"
+        ])
+
+    custom_char_detail = ""
+    if char_lead.startswith("✏️"):
+        custom_char_detail = st.text_input("Custom Character Details:", placeholder="e.g. 5 saal ki cute gudiya Ananya aur uska ajeeb dost")
+
+    col5, col6, col7 = st.columns(3)
+    with col5:
+        language = st.selectbox("Script Language:", [
+      
