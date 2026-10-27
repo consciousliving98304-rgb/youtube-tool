@@ -1,10 +1,11 @@
 import streamlit as st
-import google.generativeai as genai
+import requests
+import json
 
 st.set_page_config(page_title="Viral YouTube Creator", layout="wide")
 st.title("🎬 Viral YouTube Retention Engine")
 
-# Auto-fetch individual keys from Secrets
+# Auto-fetch keys from Secrets
 s_keys = []
 for k_name in ["KEY1", "KEY2", "KEY3", "GEMINI_KEYS"]:
     val = st.secrets.get(k_name, "")
@@ -19,7 +20,8 @@ with col_k1:
         "🔑 Gemini API Key(s):",
         value=", ".join(s_keys),
         type="password",
-        placeholder="Secrets se automatic keys load ho jayengi"
+        placeholder="AQ... ya AIzaSy... (Secrets se automatic loaded)",
+        help="Google AI Studio se mili keys yahan comma se alag karke daalein."
     )
 with col_k2:
     st.write("")
@@ -29,27 +31,45 @@ with col_k2:
 def clean_key(raw_k):
     return raw_k.strip().strip('"').strip("'").strip()
 
-def run_prompt(keys_list, prompt):
-    models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+def run_prompt_rest(keys_list, prompt_text):
+    models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
     last_err = ""
+    
     for k in keys_list:
         k_clean = clean_key(k)
         if not k_clean:
             continue
-        try:
-            genai.configure(api_key=k_clean)
-            for m in models:
-                try:
-                    model = genai.GenerativeModel(m)
-                    res = model.generate_content(prompt)
-                    if res and res.text:
-                        return res.text, None
-                except Exception as me:
-                    last_err = str(me)
-                    continue
-        except Exception as e:
-            last_err = str(e)
-            continue
+        
+        for m in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={k_clean}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "contents": [
+                    {
+                        "parts": [{"text": prompt_text}]
+                    }
+                ]
+            }
+            try:
+                resp = requests.post(url, headers=headers, json=payload, timeout=60)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        text_part = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if text_part:
+                            return text_part, None
+                else:
+                    err_json = resp.json()
+                    err_msg = err_json.get("error", {}).get("message", resp.text)
+                    last_err = f"{resp.status_code} - {err_msg}"
+                    # Agar rate limit ya quota error hai toh doosri key try karein
+                    if resp.status_code == 429:
+                        break
+            except Exception as e:
+                last_err = str(e)
+                continue
+                
     return None, last_err
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
@@ -71,7 +91,7 @@ with tab2:
         else:
             tp = f"Viral algorithm expert: Generate 5 viral shorts concepts for {niche} in {lang_t}. Include visual magnet hook (0-3s), curiosity loop, comment bait ending, and audio keywords."
             with st.spinner("Trending concepts taiyar ho rahe hain..."):
-                out, err = run_prompt(raw_keys, tp)
+                out, err = run_prompt_rest(raw_keys, tp)
             if out:
                 st.markdown(out)
             else:
@@ -88,9 +108,18 @@ with tab1:
         
     c3, c4 = st.columns(2)
     with c3:
-        char_lead = st.selectbox("Magnet Lead Character:", ["Super-Cute Innocent Child", "Stunning Attractive Lead", "Witty Birbal / Folk Hero", "Custom"])
+        char_lead = st.selectbox("Magnet Lead Character:", [
+            "Super-Cute Innocent Child",
+            "Stunning Attractive Lead",
+            "Witty Birbal / Folk Hero",
+            "Custom"
+        ])
     with c4:
-        art_style = st.selectbox("Visual Style:", ["2D Cartoon Animation", "3D Cute Pixar/Disney Style", "Cinematic Hyper-Realistic"])
+        art_style = st.selectbox("Visual Style:", [
+            "2D Cartoon Animation",
+            "3D Cute Pixar/Disney Style",
+            "Cinematic Hyper-Realistic"
+        ])
         
     c_custom = ""
     if char_lead == "Custom":
@@ -100,9 +129,18 @@ with tab1:
     with c5:
         lang = st.selectbox("Language:", ["Hinglish", "Pure Hindi (हिंदी)", "English (USA)", "Indian English"])
     with c6:
-        tone = st.selectbox("Vibe / Tone:", ["Suspense / Horror with Emotional Core", "Witty & Clever Humour", "Shocking Plot-Twist"])
+        tone = st.selectbox("Vibe / Tone:", [
+            "Suspense / Horror with Emotional Core",
+            "Witty & Clever Humour",
+            "Shocking Plot-Twist"
+        ])
     with c7:
-        hook_end = st.selectbox("Ending Hook:", ["Unsolved Riddle (Part 2 Bait)", "Massive Cliffhanger", "Unexpected Funny Twist", "Viewer Debate Question"])
+        hook_end = st.selectbox("Ending Hook:", [
+            "Unsolved Riddle (Part 2 Bait)",
+            "Massive Cliffhanger",
+            "Unexpected Funny Twist",
+            "Viewer Debate Question"
+        ])
         
     if st.button("Generate Complete Viral Pack"):
         raw_keys = [clean_key(x) for x in api_key_input.split(",") if clean_key(x)]
@@ -127,7 +165,7 @@ Deliver high retention script pack in 6 sections:
 6. 🪝 The Next-Video Bait ({hook_end}) & SEO Tags
 """
             with st.spinner(f"Viral pack taiyar ho raha hai ({dur})..."):
-                result, err = run_prompt(raw_keys, full_prompt)
+                result, err = run_prompt_rest(raw_keys, full_prompt)
                 
             if result:
                 st.markdown(result)
