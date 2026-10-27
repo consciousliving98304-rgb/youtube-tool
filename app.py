@@ -19,10 +19,7 @@ def run_prompt_rest(prompt_text):
     if not k_clean:
         return None, "Secrets mein KEY1 missing hai! Kripya Streamlit Secrets check karein."
 
-    # Sirf wahi do models jo aapke account aur cURL me verified hain
-    models = ["gemini-flash-latest", "gemini-3.8-flash"]
-    last_err = ""
-    
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
     headers = {
         "Content-Type": "application/json",
         "X-goog-api-key": k_clean
@@ -35,33 +32,25 @@ def run_prompt_rest(prompt_text):
         ]
     }
     
-    for m in models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
-        for _ in range(2):
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=90)
+        if resp.status_code == 200:
+            data = resp.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                full_text = "".join([p.get("text", "") for p in parts if "text" in p])
+                if full_text:
+                    return full_text, None
+            return None, f"Response empty aaya: {json.dumps(data)}"
+        else:
             try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=60)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        text_part = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                        if text_part:
-                            return text_part, None
-                elif resp.status_code == 503:
-                    time.sleep(2)
-                    continue
-                else:
-                    try:
-                        err_msg = resp.json().get("error", {}).get("message", resp.text)
-                    except Exception:
-                        err_msg = resp.text
-                    last_err = f"{resp.status_code} - {err_msg}"
-                    break
-            except Exception as e:
-                last_err = str(e)
-                time.sleep(1)
-                
-    return None, last_err
+                err_msg = resp.json().get("error", {}).get("message", resp.text)
+            except Exception:
+                err_msg = resp.text
+            return None, f"{resp.status_code} - {err_msg}"
+    except Exception as e:
+        return None, str(e)
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
 
