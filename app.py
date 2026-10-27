@@ -4,16 +4,22 @@ import google.generativeai as genai
 st.set_page_config(page_title="Viral YouTube Creator", layout="wide")
 st.title("🎬 Viral YouTube Retention Engine")
 
-raw_saved_keys = st.secrets.get("GEMINI_KEYS", "")
+# Auto-fetch individual keys from Secrets
+s_keys = []
+for k_name in ["KEY1", "KEY2", "KEY3", "GEMINI_KEYS"]:
+    val = st.secrets.get(k_name, "")
+    if isinstance(val, list):
+        s_keys.extend(val)
+    elif isinstance(val, str) and val.strip():
+        s_keys.extend([x.strip() for x in val.split(",") if x.strip()])
 
 col_k1, col_k2 = st.columns([3, 1])
 with col_k1:
     api_key_input = st.text_input(
         "🔑 Gemini API Key(s):",
-        value=raw_saved_keys,
+        value=", ".join(s_keys),
         type="password",
-        placeholder="AQ... ya AIzaSy... (Single ya comma se multiple)",
-        help="Google AI Studio se mili nayi API keys yahan paste karein."
+        placeholder="Secrets se automatic keys load ho jayengi"
     )
 with col_k2:
     st.write("")
@@ -82,18 +88,9 @@ with tab1:
         
     c3, c4 = st.columns(2)
     with c3:
-        char_lead = st.selectbox("Magnet Lead Character:", [
-            "Super-Cute Innocent Child",
-            "Stunning Attractive Lead",
-            "Witty Birbal / Folk Hero",
-            "Custom"
-        ])
+        char_lead = st.selectbox("Magnet Lead Character:", ["Super-Cute Innocent Child", "Stunning Attractive Lead", "Witty Birbal / Folk Hero", "Custom"])
     with c4:
-        art_style = st.selectbox("Visual Style:", [
-            "2D Cartoon Animation",
-            "3D Cute Pixar/Disney Style",
-            "Cinematic Hyper-Realistic"
-        ])
+        art_style = st.selectbox("Visual Style:", ["2D Cartoon Animation", "3D Cute Pixar/Disney Style", "Cinematic Hyper-Realistic"])
         
     c_custom = ""
     if char_lead == "Custom":
