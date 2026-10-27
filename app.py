@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+import time
 
 st.set_page_config(page_title="Viral YouTube Creator", layout="wide")
 st.title("🎬 Viral YouTube Retention Engine")
@@ -31,9 +32,14 @@ def clean_key(raw_k):
     return raw_k.strip().strip('"').strip("'").strip()
 
 def run_prompt_rest(keys_list, prompt_text):
+    # Models to auto-retry if 503 high demand occurs
+    models = [
+        "gemini-2.5-flash",
+        "gemini-1.5-flash",
+        "gemini-flash-latest",
+        "gemini-1.5-pro"
+    ]
     last_err = ""
-    # Exact URL and Header from your Google AI Studio cURL
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
     
     for k in keys_list:
         k_clean = clean_key(k)
@@ -52,26 +58,31 @@ def run_prompt_rest(keys_list, prompt_text):
             ]
         }
         
-        try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
-            if resp.status_code == 200:
-                data = resp.json()
-                candidates = data.get("candidates", [])
-                if candidates:
-                    text_part = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                    if text_part:
-                        return text_part, None
-            else:
-                try:
-                    err_json = resp.json()
-                    err_msg = err_json.get("error", {}).get("message", resp.text)
-                except Exception:
-                    err_msg = resp.text
-                last_err = f"{resp.status_code} - {err_msg}"
-        except Exception as e:
-            last_err = str(e)
-            continue
-            
+        for m in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
+            try:
+                resp = requests.post(url, headers=headers, json=payload, timeout=60)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        text_part = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if text_part:
+                            return text_part, None
+                else:
+                    try:
+                        err_json = resp.json()
+                        err_msg = err_json.get("error", {}).get("message", resp.text)
+                    except Exception:
+                        err_msg = resp.text
+                    last_err = f"{resp.status_code} - {err_msg}"
+                    # Agar model busy (503) ya limit (429) hai toh next model try karega
+                    if resp.status_code in [503, 429, 404]:
+                        continue
+            except Exception as e:
+                last_err = str(e)
+                continue
+                
     return None, last_err
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
