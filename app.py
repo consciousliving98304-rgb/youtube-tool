@@ -19,13 +19,8 @@ def run_prompt_rest(prompt_text):
     if not k_clean:
         return None, "Secrets mein KEY1 missing hai! Kripya Streamlit Secrets check karein."
 
-    # Multi-route endpoints: agar flash-latest par 503 load ho toh instant alternate route par jayega
-    endpoints = [
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
-        "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent"
-    ]
-    
+    # Official model as demanded by Google for new users
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
     headers = {
         "Content-Type": "application/json",
         "X-goog-api-key": k_clean
@@ -43,33 +38,32 @@ def run_prompt_rest(prompt_text):
     }
     
     last_err = ""
-    for url in endpoints:
-        for attempt in range(2):
-            try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=60)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        full_text = "".join([p.get("text", "") for p in parts if "text" in p])
-                        if full_text:
-                            return full_text, None
-                elif resp.status_code == 503:
-                    time.sleep(2)
-                    continue
-                else:
-                    try:
-                        err_msg = resp.json().get("error", {}).get("message", resp.text)
-                    except Exception:
-                        err_msg = resp.text
-                    last_err = f"{resp.status_code} - {err_msg}"
-                    break
-            except Exception as e:
-                last_err = str(e)
-                time.sleep(1)
-                
-    return None, f"Traffic peak hai: {last_err}. Kripya 20 second baad button dabayein."
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            if resp.status_code == 200:
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    full_text = "".join([p.get("text", "") for p in parts if "text" in p])
+                    if full_text:
+                        return full_text, None
+            elif resp.status_code == 503:
+                last_err = "Server busy (503). Retrying..."
+                time.sleep(3)
+                continue
+            else:
+                try:
+                    err_msg = resp.json().get("error", {}).get("message", resp.text)
+                except Exception:
+                    err_msg = resp.text
+                return None, f"{resp.status_code} - {err_msg}"
+        except Exception as e:
+            last_err = str(e)
+            time.sleep(2)
+            
+    return None, f"Error: {last_err}"
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
 
