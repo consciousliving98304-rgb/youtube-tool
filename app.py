@@ -20,7 +20,7 @@ with col_k1:
         "🔑 Gemini API Key(s):",
         value=", ".join(s_keys),
         type="password",
-        placeholder="Key yahan paste karein ya Secrets se aane dein"
+        placeholder="Paste AQ... key here"
     )
 with col_k2:
     st.write("")
@@ -31,45 +31,47 @@ def clean_key(raw_k):
     return raw_k.strip().strip('"').strip("'").strip()
 
 def run_prompt_rest(keys_list, prompt_text):
-    # Google recommended latest models
-    models = ["gemini-3.8-flash", "gemini-flash-latest"]
     last_err = ""
+    # Exact URL and Header from your Google AI Studio cURL
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
     
     for k in keys_list:
         k_clean = clean_key(k)
         if not k_clean:
             continue
         
-        for m in models:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
-            headers = {
-                "Content-Type": "application/json",
-                "x-goog-api-key": k_clean
-            }
-            payload = {
-                "contents": [
-                    {
-                        "parts": [{"text": prompt_text}]
-                    }
-                ]
-            }
-            try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=60)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        text_part = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                        if text_part:
-                            return text_part, None
-                else:
+        headers = {
+            "Content-Type": "application/json",
+            "X-goog-api-key": k_clean
+        }
+        payload = {
+            "contents": [
+                {
+                    "parts": [{"text": prompt_text}]
+                }
+            ]
+        }
+        
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            if resp.status_code == 200:
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    text_part = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    if text_part:
+                        return text_part, None
+            else:
+                try:
                     err_json = resp.json()
                     err_msg = err_json.get("error", {}).get("message", resp.text)
-                    last_err = f"{resp.status_code} - {err_msg}"
-            except Exception as e:
-                last_err = str(e)
-                continue
-                
+                except Exception:
+                    err_msg = resp.text
+                last_err = f"{resp.status_code} - {err_msg}"
+        except Exception as e:
+            last_err = str(e)
+            continue
+            
     return None, last_err
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
