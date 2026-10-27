@@ -5,28 +5,35 @@ st.set_page_config(page_title="Viral YouTube Creator", layout="wide")
 st.title("🎬 Viral YouTube Retention Engine")
 
 # Auto-fetch keys from Secrets if available
-saved_keys = st.secrets.get("GEMINI_KEYS", "")
+raw_saved_keys = st.secrets.get("GEMINI_KEYS", "")
 
 col_k1, col_k2 = st.columns([3, 1])
 with col_k1:
     api_key_input = st.text_input(
         "🔑 Gemini API Key(s):",
-        value=saved_keys,
+        value=raw_saved_keys,
         type="password",
         placeholder="Key1, Key2, Key3",
-        help="Secrets mein save hai toh automatic fill rahegi."
+        help="Secrets mein save hone par automatic fill rahegi."
     )
 with col_k2:
     st.write("")
     st.write("")
     st.link_button("➕ Get Free API Key", "https://aistudio.google.com/app/apikey")
 
+def clean_key(k_str):
+    # Quotes, whitespace aur extra symbols ko remove karta hai
+    return k_str.strip().strip('"').strip("'").strip()
+
 def run_prompt(keys_list, prompt):
     models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
     last_err = ""
-    for idx, k in enumerate(keys_list):
+    for k in keys_list:
+        k_clean = clean_key(k)
+        if not k_clean:
+            continue
         try:
-            genai.configure(api_key=k)
+            genai.configure(api_key=k_clean)
             for m in models:
                 try:
                     model = genai.GenerativeModel(m)
@@ -52,7 +59,7 @@ with tab2:
         if not api_key_input:
             st.error("Pehle Gemini API Key enter karein!")
         else:
-            keys = [x.strip() for x in api_key_input.split(",") if x.strip()]
+            keys = [x for x in api_key_input.split(",") if clean_key(x)]
             tp = f"Viral algorithm expert: Generate 5 viral shorts concepts for {niche} in {lang_t}. Include visual magnet hook (0-3s), curiosity loop, comment bait ending, and audio keywords."
             with st.spinner("Trending concepts taiyar ho rahe hain..."):
                 out, err = run_prompt(keys, tp)
@@ -94,7 +101,7 @@ with tab1:
         elif not topic:
             st.warning("Pehle koi topic likhiye!")
         else:
-            keys = [x.strip() for x in api_key_input.split(",") if x.strip()]
+            keys = [x for x in api_key_input.split(",") if clean_key(x)]
             lead = c_custom if char_lead == "Custom" and c_custom else char_lead
             
             full_prompt = f"""
