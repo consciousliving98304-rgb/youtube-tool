@@ -31,7 +31,8 @@ def clean_key(raw_k):
     return raw_k.strip().strip('"').strip("'").strip()
 
 def run_prompt_rest(keys_list, prompt_text):
-    models = ["gemini-flash-latest", "gemini-1.5-flash", "gemini-2.0-flash"]
+    # Google recommended latest models
+    models = ["gemini-3.8-flash", "gemini-flash-latest"]
     last_err = ""
     
     for k in keys_list:
