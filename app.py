@@ -1,6 +1,5 @@
 import streamlit as st
 import google.generativeai as genai
-import re
 
 st.set_page_config(page_title="Viral YouTube Creator", layout="wide")
 st.title("🎬 Viral YouTube Retention Engine")
@@ -13,28 +12,26 @@ with col_k1:
         "🔑 Gemini API Key(s):",
         value=raw_saved_keys,
         type="password",
-        placeholder="AIzaSy... (Key yahan paste karein)"
+        placeholder="AQ... ya AIzaSy... (Single ya comma se multiple)",
+        help="Google AI Studio se mili nayi API keys yahan paste karein."
     )
 with col_k2:
     st.write("")
     st.write("")
     st.link_button("➕ Get Free API Key", "https://aistudio.google.com/app/apikey")
 
-def extract_valid_keys(raw_input):
-    if not raw_input:
-        return []
-    found = re.findall(r"AIzaSy[a-zA-Z0-9_-]{33}", raw_input)
-    if found:
-        return found
-    parts = [p.strip().strip('"').strip("'").strip() for p in raw_input.split(",")]
-    return [p for p in parts if p]
+def clean_key(raw_k):
+    return raw_k.strip().strip('"').strip("'").strip()
 
 def run_prompt(keys_list, prompt):
-    models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+    models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
     last_err = ""
     for k in keys_list:
+        k_clean = clean_key(k)
+        if not k_clean:
+            continue
         try:
-            genai.configure(api_key=k)
+            genai.configure(api_key=k_clean)
             for m in models:
                 try:
                     model = genai.GenerativeModel(m)
@@ -53,21 +50,26 @@ tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Short
 
 with tab2:
     st.subheader("🔥 5 Viral Retention Hooks")
-    niche = st.selectbox("Category:", ["Horror with Cute Kid Hook", "Attractive Lead Drama", "Akbar-Birbal Riddles", "Plot-Twist Mystery"])
+    niche = st.selectbox("Category:", [
+        "Horror with Cute Kid Hook",
+        "Attractive Lead Drama",
+        "Akbar-Birbal Riddles",
+        "Plot-Twist Mystery"
+    ])
     lang_t = st.selectbox("Trend Language:", ["Hinglish", "Pure Hindi", "English"])
     
     if st.button("✨ Generate 5 Viral Concepts"):
-        valid_keys = extract_valid_keys(api_key_input)
-        if not valid_keys:
-            st.error("Sahi Gemini API Key enter karein (Key 'AIzaSy' se shuru honi chahiye)!")
+        raw_keys = [clean_key(x) for x in api_key_input.split(",") if clean_key(x)]
+        if not raw_keys:
+            st.error("Pehle API key enter karein!")
         else:
             tp = f"Viral algorithm expert: Generate 5 viral shorts concepts for {niche} in {lang_t}. Include visual magnet hook (0-3s), curiosity loop, comment bait ending, and audio keywords."
             with st.spinner("Trending concepts taiyar ho rahe hain..."):
-                out, err = run_prompt(valid_keys, tp)
+                out, err = run_prompt(raw_keys, tp)
             if out:
                 st.markdown(out)
             else:
-                st.error(f"Google Error Detail: {err}")
+                st.error(f"Error Detail: {err}")
 
 with tab1:
     topic = st.text_input("Story Idea / Core Mystery:", placeholder="e.g. Masoom bacche ne aaine mein kuch dekha")
@@ -80,9 +82,18 @@ with tab1:
         
     c3, c4 = st.columns(2)
     with c3:
-        char_lead = st.selectbox("Magnet Lead Character:", ["Super-Cute Innocent Child", "Stunning Attractive Lead", "Witty Birbal / Folk Hero", "Custom"])
+        char_lead = st.selectbox("Magnet Lead Character:", [
+            "Super-Cute Innocent Child",
+            "Stunning Attractive Lead",
+            "Witty Birbal / Folk Hero",
+            "Custom"
+        ])
     with c4:
-        art_style = st.selectbox("Visual Style:", ["2D Cartoon Animation", "3D Cute Pixar/Disney Style", "Cinematic Hyper-Realistic"])
+        art_style = st.selectbox("Visual Style:", [
+            "2D Cartoon Animation",
+            "3D Cute Pixar/Disney Style",
+            "Cinematic Hyper-Realistic"
+        ])
         
     c_custom = ""
     if char_lead == "Custom":
@@ -97,9 +108,9 @@ with tab1:
         hook_end = st.selectbox("Ending Hook:", ["Unsolved Riddle (Part 2 Bait)", "Massive Cliffhanger", "Unexpected Funny Twist", "Viewer Debate Question"])
         
     if st.button("Generate Complete Viral Pack"):
-        valid_keys = extract_valid_keys(api_key_input)
-        if not valid_keys:
-            st.error("Kripya sahi API Key daalein! Google API Key 'AIzaSy' se shuru hoti hai.")
+        raw_keys = [clean_key(x) for x in api_key_input.split(",") if clean_key(x)]
+        if not raw_keys:
+            st.error("Kripya Gemini API key daalein!")
         elif not topic:
             st.warning("Pehle koi topic likhiye!")
         else:
@@ -119,10 +130,10 @@ Deliver high retention script pack in 6 sections:
 6. 🪝 The Next-Video Bait ({hook_end}) & SEO Tags
 """
             with st.spinner(f"Viral pack taiyar ho raha hai ({dur})..."):
-                result, err = run_prompt(valid_keys, full_prompt)
+                result, err = run_prompt(raw_keys, full_prompt)
                 
             if result:
                 st.markdown(result)
                 st.download_button("📥 Download Viral Pack (.txt)", result, f"{topic[:20]}_viral_pack.txt", "text/plain")
             else:
-                st.error(f"Google Error Detail: {err}")
+                st.error(f"Error Detail: {err}")
