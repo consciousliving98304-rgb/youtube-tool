@@ -19,8 +19,8 @@ def run_prompt_rest(prompt_text):
     if not k_clean:
         return None, "Secrets mein KEY1 missing hai! Kripya Streamlit Secrets check karein."
 
-    # Sirf wahi 2 models jo Google AI Studio aur official response ne confirm kiye hain
-    target_models = ["gemini-3.8-flash", "gemini-flash-latest"]
+    # Models list: agar ek server busy ho toh doosre pipeline par switch karega
+    models = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.8-flash"]
     headers = {
         "Content-Type": "application/json",
         "X-goog-api-key": k_clean
@@ -34,36 +34,33 @@ def run_prompt_rest(prompt_text):
     }
     
     last_err = ""
-    for m in target_models:
+    for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
-        # Server busy (503) hone par 3 baar retry karega
-        for attempt in range(3):
-            try:
-                resp = requests.post(url, headers=headers, json=payload, timeout=60)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        full_text = "".join([p.get("text", "") for p in parts if "text" in p])
-                        if full_text:
-                            return full_text, None
-                elif resp.status_code == 503:
-                    last_err = f"{resp.status_code} - Server high demand par hai. 3 second mein auto-retry ho raha hai..."
-                    time.sleep(3)
-                    continue
-                else:
-                    try:
-                        err_msg = resp.json().get("error", {}).get("message", resp.text)
-                    except Exception:
-                        err_msg = resp.text
-                    last_err = f"{resp.status_code} - {err_msg}"
-                    break
-            except Exception as e:
-                last_err = str(e)
-                time.sleep(1)
-                
-    return None, last_err
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            if resp.status_code == 200:
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    full_text = "".join([p.get("text", "") for p in parts if "text" in p])
+                    if full_text:
+                        return full_text, None
+            elif resp.status_code in [503, 429]:
+                # Server busy hone par wait karke doosre model pipeline par jayega
+                time.sleep(2)
+                continue
+            else:
+                try:
+                    err_msg = resp.json().get("error", {}).get("message", resp.text)
+                except Exception:
+                    err_msg = resp.text
+                last_err = f"{resp.status_code} - {err_msg}"
+        except Exception as e:
+            last_err = str(e)
+            continue
+            
+    return None, "Server par temporary traffic spike hai. 1 minute baad try karein ya 'gemini-2.5-flash' connect karein."
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
 
