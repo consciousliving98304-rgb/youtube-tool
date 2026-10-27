@@ -1,10 +1,10 @@
 import streamlit as st
 import google.generativeai as genai
+import re
 
 st.set_page_config(page_title="Viral YouTube Creator", layout="wide")
 st.title("🎬 Viral YouTube Retention Engine")
 
-# Auto-fetch keys from Secrets if available
 raw_saved_keys = st.secrets.get("GEMINI_KEYS", "")
 
 col_k1, col_k2 = st.columns([3, 1])
@@ -13,27 +13,28 @@ with col_k1:
         "🔑 Gemini API Key(s):",
         value=raw_saved_keys,
         type="password",
-        placeholder="Key1, Key2, Key3",
-        help="Secrets mein save hone par automatic fill rahegi."
+        placeholder="AIzaSy... (Key yahan paste karein)"
     )
 with col_k2:
     st.write("")
     st.write("")
     st.link_button("➕ Get Free API Key", "https://aistudio.google.com/app/apikey")
 
-def clean_key(k_str):
-    # Quotes, whitespace aur extra symbols ko remove karta hai
-    return k_str.strip().strip('"').strip("'").strip()
+def extract_valid_keys(raw_input):
+    if not raw_input:
+        return []
+    found = re.findall(r"AIzaSy[a-zA-Z0-9_-]{33}", raw_input)
+    if found:
+        return found
+    parts = [p.strip().strip('"').strip("'").strip() for p in raw_input.split(",")]
+    return [p for p in parts if p]
 
 def run_prompt(keys_list, prompt):
     models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
     last_err = ""
     for k in keys_list:
-        k_clean = clean_key(k)
-        if not k_clean:
-            continue
         try:
-            genai.configure(api_key=k_clean)
+            genai.configure(api_key=k)
             for m in models:
                 try:
                     model = genai.GenerativeModel(m)
@@ -56,13 +57,13 @@ with tab2:
     lang_t = st.selectbox("Trend Language:", ["Hinglish", "Pure Hindi", "English"])
     
     if st.button("✨ Generate 5 Viral Concepts"):
-        if not api_key_input:
-            st.error("Pehle Gemini API Key enter karein!")
+        valid_keys = extract_valid_keys(api_key_input)
+        if not valid_keys:
+            st.error("Sahi Gemini API Key enter karein (Key 'AIzaSy' se shuru honi chahiye)!")
         else:
-            keys = [x for x in api_key_input.split(",") if clean_key(x)]
             tp = f"Viral algorithm expert: Generate 5 viral shorts concepts for {niche} in {lang_t}. Include visual magnet hook (0-3s), curiosity loop, comment bait ending, and audio keywords."
             with st.spinner("Trending concepts taiyar ho rahe hain..."):
-                out, err = run_prompt(keys, tp)
+                out, err = run_prompt(valid_keys, tp)
             if out:
                 st.markdown(out)
             else:
@@ -96,12 +97,12 @@ with tab1:
         hook_end = st.selectbox("Ending Hook:", ["Unsolved Riddle (Part 2 Bait)", "Massive Cliffhanger", "Unexpected Funny Twist", "Viewer Debate Question"])
         
     if st.button("Generate Complete Viral Pack"):
-        if not api_key_input:
-            st.error("Pehle Gemini API Key enter karein!")
+        valid_keys = extract_valid_keys(api_key_input)
+        if not valid_keys:
+            st.error("Kripya sahi API Key daalein! Google API Key 'AIzaSy' se shuru hoti hai.")
         elif not topic:
             st.warning("Pehle koi topic likhiye!")
         else:
-            keys = [x for x in api_key_input.split(",") if clean_key(x)]
             lead = c_custom if char_lead == "Custom" and c_custom else char_lead
             
             full_prompt = f"""
@@ -118,7 +119,7 @@ Deliver high retention script pack in 6 sections:
 6. 🪝 The Next-Video Bait ({hook_end}) & SEO Tags
 """
             with st.spinner(f"Viral pack taiyar ho raha hai ({dur})..."):
-                result, err = run_prompt(keys, full_prompt)
+                result, err = run_prompt(valid_keys, full_prompt)
                 
             if result:
                 st.markdown(result)
