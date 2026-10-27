@@ -20,8 +20,7 @@ with col_k1:
         "🔑 Gemini API Key(s):",
         value=", ".join(s_keys),
         type="password",
-        placeholder="AQ... ya AIzaSy... (Comma-separated)",
-        help="Google AI Studio se mili keys automatic yahan load hoti hain."
+        placeholder="Key yahan paste karein ya Secrets se aane dein"
     )
 with col_k2:
     st.write("")
@@ -32,7 +31,7 @@ def clean_key(raw_k):
     return raw_k.strip().strip('"').strip("'").strip()
 
 def run_prompt_rest(keys_list, prompt_text):
-    models = ["gemini-flash-latest", "gemini-1.5-flash", "gemini-1.5-pro"]
+    models = ["gemini-flash-latest", "gemini-1.5-flash", "gemini-2.0-flash"]
     last_err = ""
     
     for k in keys_list:
@@ -44,7 +43,7 @@ def run_prompt_rest(keys_list, prompt_text):
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
             headers = {
                 "Content-Type": "application/json",
-                "X-goog-api-key": k_clean
+                "x-goog-api-key": k_clean
             }
             payload = {
                 "contents": [
@@ -66,8 +65,6 @@ def run_prompt_rest(keys_list, prompt_text):
                     err_json = resp.json()
                     err_msg = err_json.get("error", {}).get("message", resp.text)
                     last_err = f"{resp.status_code} - {err_msg}"
-                    if resp.status_code == 429:
-                        break
             except Exception as e:
                 last_err = str(e)
                 continue
