@@ -4,17 +4,27 @@ import google.generativeai as genai
 st.set_page_config(page_title="Viral YouTube Creator", layout="wide")
 st.title("🎬 Viral YouTube Retention Engine")
 
+# Auto-fetch keys from Secrets if available
+saved_keys = st.secrets.get("GEMINI_KEYS", "")
+
 col_k1, col_k2 = st.columns([3, 1])
 with col_k1:
-    api_key_input = st.text_input("🔑 Enter Gemini API Key(s):", type="password", placeholder="Key1, Key2")
+    api_key_input = st.text_input(
+        "🔑 Gemini API Key(s):",
+        value=saved_keys,
+        type="password",
+        placeholder="Key1, Key2, Key3",
+        help="Secrets mein save hai toh automatic fill rahegi."
+    )
 with col_k2:
     st.write("")
     st.write("")
     st.link_button("➕ Get Free API Key", "https://aistudio.google.com/app/apikey")
 
 def run_prompt(keys_list, prompt):
-    models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
-    for k in keys_list:
+    models = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+    last_err = ""
+    for idx, k in enumerate(keys_list):
         try:
             genai.configure(api_key=k)
             for m in models:
@@ -22,12 +32,14 @@ def run_prompt(keys_list, prompt):
                     model = genai.GenerativeModel(m)
                     res = model.generate_content(prompt)
                     if res and res.text:
-                        return res.text
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    return None
+                        return res.text, None
+                except Exception as me:
+                    last_err = str(me)
+                    continue
+        except Exception as e:
+            last_err = str(e)
+            continue
+    return None, last_err
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
 
@@ -43,11 +55,11 @@ with tab2:
             keys = [x.strip() for x in api_key_input.split(",") if x.strip()]
             tp = f"Viral algorithm expert: Generate 5 viral shorts concepts for {niche} in {lang_t}. Include visual magnet hook (0-3s), curiosity loop, comment bait ending, and audio keywords."
             with st.spinner("Trending concepts taiyar ho rahe hain..."):
-                out = run_prompt(keys, tp)
+                out, err = run_prompt(keys, tp)
             if out:
                 st.markdown(out)
             else:
-                st.error("API Key quota issue. 'Get Free API Key' se nayi key use karein.")
+                st.error(f"Google Error Detail: {err}")
 
 with tab1:
     topic = st.text_input("Story Idea / Core Mystery:", placeholder="e.g. Masoom bacche ne aaine mein kuch dekha")
@@ -99,10 +111,10 @@ Deliver high retention script pack in 6 sections:
 6. 🪝 The Next-Video Bait ({hook_end}) & SEO Tags
 """
             with st.spinner(f"Viral pack taiyar ho raha hai ({dur})..."):
-                result = run_prompt(keys, full_prompt)
+                result, err = run_prompt(keys, full_prompt)
                 
             if result:
                 st.markdown(result)
                 st.download_button("📥 Download Viral Pack (.txt)", result, f"{topic[:20]}_viral_pack.txt", "text/plain")
             else:
-                st.error("API keys ka quota reach ho chuka hai ya key invalid hai. 'Get Free API Key' par click karke fresh key dalein.")
+                st.error(f"Google Error Detail: {err}")
