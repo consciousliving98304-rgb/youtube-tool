@@ -19,8 +19,8 @@ def run_prompt_rest(prompt_text):
     if not k_clean:
         return None, "Secrets mein KEY1 missing hai! Kripya Streamlit Secrets check karein."
 
-    # Models list: agar ek server busy ho toh doosre pipeline par switch karega
-    models = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.8-flash"]
+    # Verified endpoints
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
     headers = {
         "Content-Type": "application/json",
         "X-goog-api-key": k_clean
@@ -30,14 +30,18 @@ def run_prompt_rest(prompt_text):
             {
                 "parts": [{"text": prompt_text}]
             }
-        ]
+        ],
+        "generationConfig": {
+            "maxOutputTokens": 2048,
+            "temperature": 0.7
+        }
     }
     
     last_err = ""
-    for m in models:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
+    # Retries with longer pause (4s, 7s, 10s) to wait out the 503 spike
+    for wait_time in [4, 7, 10]:
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            resp = requests.post(url, headers=headers, json=payload, timeout=90)
             if resp.status_code == 200:
                 data = resp.json()
                 candidates = data.get("candidates", [])
@@ -46,21 +50,21 @@ def run_prompt_rest(prompt_text):
                     full_text = "".join([p.get("text", "") for p in parts if "text" in p])
                     if full_text:
                         return full_text, None
-            elif resp.status_code in [503, 429]:
-                # Server busy hone par wait karke doosre model pipeline par jayega
-                time.sleep(2)
+            elif resp.status_code == 503:
+                last_err = f"503 (Server demand spike). Auto-reconnecting in {wait_time}s..."
+                time.sleep(wait_time)
                 continue
             else:
                 try:
                     err_msg = resp.json().get("error", {}).get("message", resp.text)
                 except Exception:
                     err_msg = resp.text
-                last_err = f"{resp.status_code} - {err_msg}"
+                return None, f"{resp.status_code} - {err_msg}"
         except Exception as e:
             last_err = str(e)
-            continue
+            time.sleep(2)
             
-    return None, "Server par temporary traffic spike hai. 1 minute baad try karein ya 'gemini-2.5-flash' connect karein."
+    return None, f"{last_err} (Google server busy chal raha hai, kripya 30 second ruk kar dobara click karein)."
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
 
@@ -146,7 +150,7 @@ Deliver high retention script pack in 6 sections:
 5. 🎵 Sound Design & Background Music
 6. 🪝 The Next-Video Bait ({hook_end}) & SEO Tags
 """
-            with st.spinner("Viral pack taiyar ho raha hai..."):
+            with st.spinner("Viral pack taiyar ho raha hai (server demand manage ho rahi hai)..."):
                 result, err = run_prompt_rest(full_prompt)
                 
             if result:
