@@ -19,7 +19,6 @@ def run_prompt_rest(prompt_text):
     if not k_clean:
         return None, "Secrets mein KEY1 missing hai! Kripya Streamlit Secrets check karein."
 
-    # Official model as demanded by Google for new users
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
     headers = {
         "Content-Type": "application/json",
@@ -32,15 +31,17 @@ def run_prompt_rest(prompt_text):
             }
         ],
         "generationConfig": {
-            "maxOutputTokens": 2048,
             "temperature": 0.7
         }
     }
     
+    # 5 attempts with realistic wait times (4s, 8s, 12s, 16s) to guarantee passing 503 traffic
+    delays = [4, 8, 12, 16, 20]
     last_err = ""
-    for attempt in range(3):
+    
+    for attempt, delay in enumerate(delays, 1):
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
+            resp = requests.post(url, headers=headers, json=payload, timeout=90)
             if resp.status_code == 200:
                 data = resp.json()
                 candidates = data.get("candidates", [])
@@ -50,8 +51,8 @@ def run_prompt_rest(prompt_text):
                     if full_text:
                         return full_text, None
             elif resp.status_code == 503:
-                last_err = "Server busy (503). Retrying..."
-                time.sleep(3)
+                last_err = f"Google server busy chal raha tha (Attempt {attempt}/5 passed)."
+                time.sleep(delay)
                 continue
             else:
                 try:
@@ -61,9 +62,9 @@ def run_prompt_rest(prompt_text):
                 return None, f"{resp.status_code} - {err_msg}"
         except Exception as e:
             last_err = str(e)
-            time.sleep(2)
+            time.sleep(3)
             
-    return None, f"Error: {last_err}"
+    return None, f"Google traffic spike: {last_err} Kripya 20 second ruk kar dubara dabayein."
 
 tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
 
@@ -149,7 +150,7 @@ Deliver high retention script pack in 6 sections:
 5. 🎵 Sound Design & Background Music
 6. 🪝 The Next-Video Bait ({hook_end}) & SEO Tags
 """
-            with st.spinner("Viral pack taiyar ho raha hai..."):
+            with st.spinner("Generating Viral Pack... Thoda intezar karein..."):
                 result, err = run_prompt_rest(full_prompt)
                 
             if result:
