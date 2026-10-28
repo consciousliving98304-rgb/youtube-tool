@@ -1,160 +1,241 @@
+
 import streamlit as st
 import requests
 import json
 import time
 
-st.set_page_config(page_title="Viral YouTube Creator", layout="wide")
+st.set_page_config(
+    page_title="Viral YouTube Retention Engine",
+    page_icon="🎬",
+    layout="wide"
+)
+
 st.title("🎬 Viral YouTube Retention Engine")
+st.caption("Create engaging YouTube scripts, titles, SEO and visual prompts.")
 
-# Fetch key from Secrets
-api_key = st.secrets.get("KEY1", "")
-if not api_key:
-    api_key = st.secrets.get("GEMINI_KEYS", "")
+# Gemini API settings
+API_URL = (
+    "https://generativelanguage.googleapis.com/"
+    "v1beta/models/gemini-2.5-flash:generateContent"
+)
 
-def clean_key(raw_k):
-    return str(raw_k).strip().strip('"').strip("'").strip()
+# Read API key from Streamlit Secrets
+try:
+    SECRET_KEY = st.secrets.get("KEY1", "")
+except Exception:
+    SECRET_KEY = ""
 
-def run_prompt_rest(prompt_text):
-    k_clean = clean_key(api_key)
-    if not k_clean:
-        return None, "Secrets mein KEY1 missing hai! Kripya Streamlit Secrets check karein."
+with st.sidebar:
+    st.header("⚙️ Settings")
+    api_key = st.text_input(
+        "Gemini API Key",
+        value=SECRET_KEY,
+        type="password",
+        help="Your key is used only for API requests."
+    )
+    st.caption("Keep your API key private.")
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
-    headers = {
-        "Content-Type": "application/json",
-        "X-goog-api-key": k_clean
-    }
+def ask_gemini(prompt):
+    """Send one request to Gemini and return its text."""
+    if not api_key.strip():
+        return "ERROR: Please enter your Gemini API key in the sidebar."
+
+    headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
             {
-                "parts": [{"text": prompt_text}]
+                "parts": [{"text": prompt}]
             }
         ],
         "generationConfig": {
-            "temperature": 0.7
+            "temperature": 0.8,
+            "maxOutputTokens": 8192
         }
     }
-    
-    # 5 attempts with realistic wait times (4s, 8s, 12s, 16s) to guarantee passing 503 traffic
-    delays = [4, 8, 12, 16, 20]
-    last_err = ""
-    
-    for attempt, delay in enumerate(delays, 1):
-        try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=90)
-            if resp.status_code == 200:
-                data = resp.json()
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    full_text = "".join([p.get("text", "") for p in parts if "text" in p])
-                    if full_text:
-                        return full_text, None
-            elif resp.status_code == 503:
-                last_err = f"Google server busy chal raha tha (Attempt {attempt}/5 passed)."
-                time.sleep(delay)
-                continue
-            else:
-                try:
-                    err_msg = resp.json().get("error", {}).get("message", resp.text)
-                except Exception:
-                    err_msg = resp.text
-                return None, f"{resp.status_code} - {err_msg}"
-        except Exception as e:
-            last_err = str(e)
-            time.sleep(3)
-            
-    return None, f"Google traffic spike: {last_err} Kripya 20 second ruk kar dubara dabayein."
 
-tab1, tab2 = st.tabs(["🚀 Viral Script & Visual Pack", "🔥 5 Retention Shorts Ideas"])
+    try:
+        response = requests.post(
+            API_URL,
+            headers={
+                **headers,
+                "x-goog-api-key": api_key.strip()
+            },
+            json=payload,
+            timeout=120
+        )
 
-with tab2:
-    st.subheader("🔥 5 Viral Retention Hooks")
-    niche = st.selectbox("Category:", [
-        "Horror with Cute Kid Hook",
-        "Attractive Lead Drama",
-        "Akbar-Birbal Riddles",
-        "Plot-Twist Mystery"
-    ])
-    lang_t = st.selectbox("Trend Language:", ["Hinglish", "Pure Hindi", "English"])
-    
-    if st.button("✨ Generate 5 Viral Concepts"):
-        tp = f"Viral algorithm expert: Generate 5 viral shorts concepts for {niche} in {lang_t}. Include visual magnet hook (0-3s), curiosity loop, comment bait ending, and audio keywords."
-        with st.spinner("Trending concepts taiyar ho rahe hain..."):
-            out, err = run_prompt_rest(tp)
-        if out:
-            st.markdown(out)
-        else:
-            st.error(f"Error Detail: {err}")
+        if response.status_code == 429:
+            return (
+                "ERROR: Gemini API quota or rate limit reached. "
+                "Check your API quota and billing, then try again later."
+            )
+
+        if response.status_code == 400:
+            return (
+                "ERROR: Invalid request or API key. "
+                "Check the key and Gemini API access. Details: "
+                + response.text[:800]
+            )
+
+        if response.status_code in (401, 403):
+            return (
+                "ERROR: API access denied. Check your API key, "
+                "permissions and project settings."
+            )
+
+        response.raise_for_status()
+        data = response.json()
+
+        candidates = data.get("candidates", [])
+        if not candidates:
+            return "ERROR: Gemini returned no answer. Please try again."
+
+        parts = candidates[0].get("content", {}).get("parts", [])
+        answer = "\n".join(
+            part["text"] for part in parts if "text" in part
+        ).strip()
+
+        return answer or "ERROR: Gemini returned an empty response."
+
+    except requests.exceptions.Timeout:
+        return "ERROR: Request timed out. Please try again."
+    except requests.exceptions.RequestException as error:
+        return f"ERROR: Network/API request failed: {error}"
+    except (ValueError, KeyError, TypeError) as error:
+        return f"ERROR: Could not read the API response: {error}"
+
+
+def show_result(result):
+    if result.startswith("ERROR:"):
+        st.error(result.replace("ERROR: ", "", 1))
+    else:
+        st.markdown(result)
+        st.download_button(
+            "📥 Download result as TXT",
+            data=result,
+            file_name="youtube_creator_result.txt",
+            mime="text/plain"
+        )
+
+
+tab1, tab2 = st.tabs([
+    "🎬 Viral Script & Visual Pack",
+    "🔥 5 Retention Shorts Ideas"
+])
 
 with tab1:
-    topic = st.text_input("Story Idea / Core Mystery:", value="love story", placeholder="e.g. Masoom bacche ne aaine mein kuch dekha")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        v_type = st.selectbox("Format:", ["YouTube Shorts / Reel", "YouTube Long Video"])
-    with c2:
-        dur = st.selectbox("Duration:", ["30 Sec", "60 Sec", "3 Min", "5 Min", "8-10 Min"])
-        
-    c3, c4 = st.columns(2)
-    with c3:
-        char_lead = st.selectbox("Magnet Lead Character:", [
-            "Super-Cute Innocent Child",
-            "Stunning Attractive Lead",
-            "Witty Birbal / Folk Hero",
-            "Custom"
-        ])
-    with c4:
-        art_style = st.selectbox("Visual Style:", [
-            "2D Cartoon Animation",
-            "3D Cute Pixar/Disney Style",
-            "Cinematic Hyper-Realistic"
-        ])
-        
-    c_custom = ""
-    if char_lead == "Custom":
-        c_custom = st.text_input("Custom Character Details:")
-        
-    c5, c6, c7 = st.columns(3)
-    with c5:
-        lang = st.selectbox("Language:", ["Hinglish", "Pure Hindi (हिंदी)", "English (USA)", "Indian English"])
-    with c6:
-        tone = st.selectbox("Vibe / Tone:", [
-            "Suspense / Horror with Emotional Core",
-            "Witty & Clever Humour",
-            "Shocking Plot-Twist"
-        ])
-    with c7:
-        hook_end = st.selectbox("Ending Hook:", [
-            "Unsolved Riddle (Part 2 Bait)",
-            "Massive Cliffhanger",
-            "Unexpected Funny Twist",
-            "Viewer Debate Question"
-        ])
-        
-    if st.button("Generate Complete Viral Pack"):
-        if not topic:
-            st.warning("Pehle koi topic likhiye!")
-        else:
-            lead = c_custom if char_lead == "Custom" and c_custom else char_lead
-            full_prompt = f"""
-Role: Master YouTube Scriptwriter & Retention Engineer.
-Format: {v_type} | Duration: {dur} | Topic: {topic} | Tone: {tone}
-Lead Magnet: {lead} | Art Style: {art_style} | Language: {lang} | End Hook: {hook_end}
+    st.subheader("Create a YouTube video package")
 
-Deliver high retention script pack in 6 sections:
-1. 🎯 5 Viral Titles & Psychological Thumbnail Prompts focusing on {lead}
-2. ⚡ The First 25-Second Retention Hook (mid-action start, visual hook)
-3. 📜 Full Timed Script in {lang} matching {dur}
-4. 🎥 Scene-by-Scene Visual Prompts matching {art_style}
-5. 🎵 Sound Design & Background Music
-6. 🪝 The Next-Video Bait ({hook_end}) & SEO Tags
+    topic = st.text_input(
+        "Video topic",
+        placeholder="Example: A magical suit that creates a stock market genius"
+    )
+
+    audience = st.selectbox(
+        "Target audience",
+        ["USA audience", "Global English audience", "Hindi audience"]
+    )
+
+    video_type = st.selectbox(
+        "Video type",
+        ["YouTube Shorts", "Long-form YouTube video", "Horror story",
+         "Funny animal story", "Motivational story", "Spirituality"]
+    )
+
+    duration = st.selectbox(
+        "Video duration",
+        ["30 seconds", "45 seconds", "60 seconds", "3 minutes",
+         "5 minutes", "10 minutes"]
+    )
+
+    language = st.selectbox(
+        "Script language",
+        ["Natural American English", "Simple English", "Hindi"]
+    )
+
+    if st.button("🚀 Generate Viral Video Pack", type="primary"):
+        if not topic.strip():
+            st.warning("Please enter a video topic first.")
+        elif not api_key.strip():
+            st.error("Enter your Gemini API key in the sidebar.")
+        else:
+            prompt = f"""
+You are an expert YouTube scriptwriter and audience-retention strategist.
+
+Create a complete YouTube content package.
+
+Topic: {topic}
+Target audience: {audience}
+Video type: {video_type}
+Duration: {duration}
+Language: {language}
+
+Include:
+1. Three clickable, honest title options.
+2. One strong opening hook for the first 1-3 seconds.
+3. A complete, engaging script suited to the requested duration.
+4. Retention techniques, curiosity gaps and pattern interrupts.
+5. Suggested on-screen captions and sound effects.
+6. Scene-by-scene visual prompts for AI image/video tools.
+7. Thumbnail concept and thumbnail text.
+8. SEO description and relevant keywords.
+9. Relevant hashtags.
+10. A short call to action.
+
+Use original ideas. Avoid fake claims, misleading titles,
+copyrighted dialogue, and copying existing creators.
+Make the content suitable for the specified audience.
 """
-            with st.spinner("Generating Viral Pack... Thoda intezar karein..."):
-                result, err = run_prompt_rest(full_prompt)
-                
-            if result:
-                st.markdown(result)
-                st.download_button("📥 Download Viral Pack (.txt)", result, f"{topic[:20]}_viral_pack.txt", "text/plain")
-            else:
-                st.error(f"Error Detail: {err}")
+            with st.spinner("Creating your video package..."):
+                result = ask_gemini(prompt)
+            show_result(result)
+
+with tab2:
+    st.subheader("Generate 5 engaging Shorts ideas")
+
+    idea_topic = st.text_input(
+        "Niche or topic for Shorts",
+        placeholder="Example: Horror stories, funny puppies, life lessons",
+        key="idea_topic"
+    )
+
+    idea_audience = st.selectbox(
+        "Shorts audience",
+        ["USA audience", "Global audience", "Hindi audience"],
+        key="idea_audience"
+    )
+
+    if st.button("🔥 Generate 5 Shorts Ideas", type="primary"):
+        if not idea_topic.strip():
+            st.warning("Please enter a niche or topic first.")
+        elif not api_key.strip():
+            st.error("Enter your Gemini API key in the sidebar.")
+        else:
+            prompt = f"""
+You are a YouTube Shorts strategist.
+
+Generate exactly 5 original Shorts ideas.
+Niche: {idea_topic}
+Audience: {idea_audience}
+
+For each idea provide:
+- A catchy title
+- A 1-3 second hook
+- A short story or video concept
+- A simple scene-by-scene outline
+- An ending that encourages comments or rewatching
+- Three relevant hashtags
+
+Make each idea distinct, engaging and suitable for short-form video.
+Do not promise virality or copy existing videos.
+"""
+            with st.spinner("Finding five creative ideas..."):
+                result = ask_gemini(prompt)
+            show_result(result)
+
+st.divider()
+st.caption(
+    "Note: This app generates text and visual prompts. "
+    "It does not render or export actual video files."
+)
+  
