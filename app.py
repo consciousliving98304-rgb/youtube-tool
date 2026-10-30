@@ -2,49 +2,68 @@
 import streamlit as st
 import requests
 import json
-import time
+from datetime import datetime
+
+# ---------------- PAGE SETTINGS ----------------
 
 st.set_page_config(
-    page_title="Viral YouTube Retention Engine",
+    page_title="Viral YouTube Creator Tool",
     page_icon="🎬",
     layout="wide"
 )
 
-st.title("🎬 Viral YouTube Retention Engine")
-st.caption("Create engaging YouTube scripts, titles, SEO and visual prompts.")
+st.title("🎬 Viral YouTube Creator Tool")
+st.write("Create engaging YouTube content with AI.")
+st.divider()
 
-# Gemini API settings
+# ---------------- GEMINI API SETTINGS ----------------
+
 API_URL = (
     "https://generativelanguage.googleapis.com/"
-    "v1beta/models/gemini-2.5-flash:generateContent"
+    "v1beta/models/gemini-3.8-flash:generateContent"
 )
 
-# Read API key from Streamlit Secrets
 try:
     SECRET_KEY = st.secrets.get("KEY1", "")
 except Exception:
     SECRET_KEY = ""
 
+# ---------------- SIDEBAR ----------------
+
 with st.sidebar:
     st.header("⚙️ Settings")
+
     api_key = st.text_input(
         "Gemini API Key",
         value=SECRET_KEY,
-        type="password",
-        help="Your key is used only for API requests."
+        type="password"
     )
-    st.caption("Keep your API key private.")
+
+    st.info("Your API key is kept private.")
+
+    st.markdown("---")
+    st.write("🎯 Target: USA Audience")
+    st.write("📱 Platform: YouTube Shorts")
+    st.write("🤖 AI: Gemini")
+
+# ---------------- AI FUNCTION ----------------
 
 def ask_gemini(prompt):
-    """Send one request to Gemini and return its text."""
-    if not api_key.strip():
-        return "ERROR: Please enter your Gemini API key in the sidebar."
 
-    headers = {"Content-Type": "application/json"}
+    if not api_key.strip():
+        return "ERROR: Please enter your Gemini API Key."
+
+    headers = {
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key.strip()
+    }
+
     payload = {
         "contents": [
             {
-                "parts": [{"text": prompt}]
+                "parts": [
+                    {"text": prompt}
+                ]
             }
         ],
         "generationConfig": {
@@ -56,186 +75,384 @@ def ask_gemini(prompt):
     try:
         response = requests.post(
             API_URL,
-            headers={
-                **headers,
-                "x-goog-api-key": api_key.strip()
-            },
+            headers=headers,
             json=payload,
             timeout=120
         )
 
-        if response.status_code == 429:
+        if response.status_code != 200:
+            try:
+                error_data = response.json()
+                error_message = error_data.get(
+                    "error", {}
+                ).get("message", response.text)
+            except ValueError:
+                error_message = response.text
+
             return (
-                "ERROR: Gemini API quota or rate limit reached. "
-                "Check your API quota and billing, then try again later."
+                f"ERROR: API Error {response.status_code}: "
+                f"{error_message}"
             )
 
-        if response.status_code == 400:
-            return (
-                "ERROR: Invalid request or API key. "
-                "Check the key and Gemini API access. Details: "
-                + response.text[:800]
-            )
-
-        if response.status_code in (401, 403):
-            return (
-                "ERROR: API access denied. Check your API key, "
-                "permissions and project settings."
-            )
-
-        response.raise_for_status()
         data = response.json()
 
         candidates = data.get("candidates", [])
+
         if not candidates:
-            return "ERROR: Gemini returned no answer. Please try again."
+            return "ERROR: Gemini returned no response."
 
-        parts = candidates[0].get("content", {}).get("parts", [])
-        answer = "\n".join(
-            part["text"] for part in parts if "text" in part
-        ).strip()
+        parts = candidates[0].get(
+            "content", {}
+        ).get("parts", [])
 
-        return answer or "ERROR: Gemini returned an empty response."
+        result = "\n".join(
+            part.get("text", "")
+            for part in parts
+            if part.get("text")
+        )
+
+        if not result.strip():
+            return "ERROR: Empty AI response."
+
+        return result
 
     except requests.exceptions.Timeout:
-        return "ERROR: Request timed out. Please try again."
-    except requests.exceptions.RequestException as error:
-        return f"ERROR: Network/API request failed: {error}"
-    except (ValueError, KeyError, TypeError) as error:
-        return f"ERROR: Could not read the API response: {error}"
+        return "ERROR: Request timed out. Try again."
+
+    except requests.exceptions.RequestException as e:
+        return f"ERROR: Network/API request failed: {e}"
+
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
 
-def show_result(result):
+# ---------------- RESULT DISPLAY ----------------
+
+def display_result(result, filename):
+
     if result.startswith("ERROR:"):
-        st.error(result.replace("ERROR: ", "", 1))
+        st.error(result)
     else:
+        st.success("Content generated successfully!")
+
         st.markdown(result)
+
         st.download_button(
-            "📥 Download result as TXT",
+            label="📥 Download TXT File",
             data=result,
-            file_name="youtube_creator_result.txt",
+            file_name=filename,
             mime="text/plain"
         )
 
 
-tab1, tab2 = st.tabs([
-    "🎬 Viral Script & Visual Pack",
-    "🔥 5 Retention Shorts Ideas"
+# ---------------- MAIN TABS ----------------
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🎬 Script Generator",
+    "🐱 AI Animals",
+    "👻 Horror Stories",
+    "🔥 Viral Ideas",
+    "🔍 SEO & Titles"
 ])
 
+
+# ==================================================
+# TAB 1: SCRIPT GENERATOR
+# ==================================================
+
 with tab1:
-    st.subheader("Create a YouTube video package")
+
+    st.header("🎬 YouTube Script Generator")
 
     topic = st.text_input(
-        "Video topic",
-        placeholder="Example: A magical suit that creates a stock market genius"
-    )
-
-    audience = st.selectbox(
-        "Target audience",
-        ["USA audience", "Global English audience", "Hindi audience"]
-    )
-
-    video_type = st.selectbox(
-        "Video type",
-        ["YouTube Shorts", "Long-form YouTube video", "Horror story",
-         "Funny animal story", "Motivational story", "Spirituality"]
+        "Enter Video Topic",
+        placeholder="Example: A magical suit makes a man a genius"
     )
 
     duration = st.selectbox(
-        "Video duration",
-        ["30 seconds", "45 seconds", "60 seconds", "3 minutes",
-         "5 minutes", "10 minutes"]
+        "Video Duration",
+        ["30 Seconds", "45 Seconds", "60 Seconds",
+         "3 Minutes", "5 Minutes", "10 Minutes"]
     )
 
     language = st.selectbox(
-        "Script language",
+        "Language",
         ["Natural American English", "Simple English", "Hindi"]
     )
 
-    if st.button("🚀 Generate Viral Video Pack", type="primary"):
+    if st.button("🚀 Generate Script", key="script"):
+
         if not topic.strip():
-            st.warning("Please enter a video topic first.")
-        elif not api_key.strip():
-            st.error("Enter your Gemini API key in the sidebar.")
+            st.warning("Please enter a topic.")
+
         else:
+
             prompt = f"""
-You are an expert YouTube scriptwriter and audience-retention strategist.
+You are a professional USA YouTube storyteller.
 
-Create a complete YouTube content package.
+Create an original and engaging YouTube script.
 
-Topic: {topic}
-Target audience: {audience}
-Video type: {video_type}
-Duration: {duration}
-Language: {language}
+TOPIC: {topic}
+DURATION: {duration}
+LANGUAGE: {language}
 
 Include:
-1. Three clickable, honest title options.
-2. One strong opening hook for the first 1-3 seconds.
-3. A complete, engaging script suited to the requested duration.
-4. Retention techniques, curiosity gaps and pattern interrupts.
-5. Suggested on-screen captions and sound effects.
-6. Scene-by-scene visual prompts for AI image/video tools.
-7. Thumbnail concept and thumbnail text.
-8. SEO description and relevant keywords.
-9. Relevant hashtags.
-10. A short call to action.
 
-Use original ideas. Avoid fake claims, misleading titles,
-copyrighted dialogue, and copying existing creators.
-Make the content suitable for the specified audience.
+1. Powerful opening hook.
+2. Interesting storytelling.
+3. Emotional and funny moments where suitable.
+4. Curiosity and suspense.
+5. Scene-by-scene narration.
+6. Strong ending.
+7. Call to action.
+
+Make it engaging for American viewers.
+Use natural American English when English is selected.
+Avoid copying existing stories or copyrighted dialogue.
 """
-            with st.spinner("Creating your video package..."):
+
+            with st.spinner("Creating your script..."):
                 result = ask_gemini(prompt)
-            show_result(result)
+
+            display_result(result, "youtube_script.txt")
+
+
+# ==================================================
+# TAB 2: AI ANIMALS
+# ==================================================
 
 with tab2:
-    st.subheader("Generate 5 engaging Shorts ideas")
 
-    idea_topic = st.text_input(
-        "Niche or topic for Shorts",
-        placeholder="Example: Horror stories, funny puppies, life lessons",
-        key="idea_topic"
+    st.header("🐱 AI Animals Story Generator")
+
+    animal_type = st.selectbox(
+        "Choose Animals",
+        [
+            "Funny Cats",
+            "Cute Puppies",
+            "Dogs and Cats",
+            "Wild Animals",
+            "Baby Animals",
+            "Custom Animals"
+        ]
     )
 
-    idea_audience = st.selectbox(
-        "Shorts audience",
-        ["USA audience", "Global audience", "Hindi audience"],
-        key="idea_audience"
+    animal_topic = st.text_input(
+        "Story Idea",
+        placeholder="Example: Two cats go fishing"
     )
 
-    if st.button("🔥 Generate 5 Shorts Ideas", type="primary"):
-        if not idea_topic.strip():
-            st.warning("Please enter a niche or topic first.")
-        elif not api_key.strip():
-            st.error("Enter your Gemini API key in the sidebar.")
+    animal_duration = st.selectbox(
+        "Story Duration",
+        ["30 Seconds", "45 Seconds", "60 Seconds"]
+    )
+
+    if st.button("🐾 Create Animal Story", key="animals"):
+
+        if not animal_topic.strip():
+            st.warning("Enter an animal story idea.")
+
         else:
-            prompt = f"""
-You are a YouTube Shorts strategist.
 
-Generate exactly 5 original Shorts ideas.
-Niche: {idea_topic}
-Audience: {idea_audience}
+            prompt = f"""
+You are an expert funny AI animal story creator
+for a USA YouTube Shorts channel.
+
+Animals: {animal_type}
+Story idea: {animal_topic}
+Duration: {animal_duration}
+
+Create an original funny story.
+
+Include:
+
+1. A strong first-second hook.
+2. Funny animal reactions.
+3. Clear visual actions.
+4. Scene-by-scene descriptions.
+5. Funny expressions and surprises.
+6. An entertaining ending.
+
+Write in natural American English.
+
+Also provide separate AI video prompts for every scene.
+Keep animal appearances consistent across scenes.
+"""
+
+            with st.spinner("Creating animal story..."):
+                result = ask_gemini(prompt)
+
+            display_result(result, "ai_animals_story.txt")
+
+
+# ==================================================
+# TAB 3: HORROR STORIES
+# ==================================================
+
+with tab3:
+
+    st.header("👻 USA Horror Story Generator")
+
+    horror_topic = st.text_input(
+        "Horror Story Idea",
+        placeholder="Example: A strange knocking at 3 AM"
+    )
+
+    horror_type = st.selectbox(
+        "Horror Style",
+        [
+            "Psychological Horror",
+            "Paranormal Horror",
+            "Haunted House",
+            "Mystery Horror",
+            "Scary Creature",
+            "Twist Ending Horror"
+        ]
+    )
+
+    if st.button("👻 Generate Horror Story", key="horror"):
+
+        if not horror_topic.strip():
+            st.warning("Enter a horror topic.")
+
+        else:
+
+            prompt = f"""
+You are a professional American horror storyteller.
+
+Create an original horror story.
+
+Topic: {horror_topic}
+Style: {horror_type}
+
+Include:
+
+1. Terrifying opening hook.
+2. Suspenseful atmosphere.
+3. Unexpected events.
+4. Strong storytelling.
+5. Scary climax.
+6. Surprising ending.
+7. Scene-by-scene AI video prompts.
+8. Sound effect suggestions.
+
+Write in natural American English.
+Make it suitable for YouTube Shorts.
+Avoid copying existing horror stories.
+"""
+
+            with st.spinner("Creating scary story..."):
+                result = ask_gemini(prompt)
+
+            display_result(result, "horror_story.txt")
+
+
+# ==================================================
+# TAB 4: VIRAL IDEAS
+# ==================================================
+
+with tab4:
+
+    st.header("🔥 YouTube Viral Shorts Ideas")
+
+    niche = st.text_input(
+        "Enter Your Channel Niche",
+        placeholder="Example: Funny Animals"
+    )
+
+    if st.button("🔥 Generate 10 Ideas", key="ideas"):
+
+        if not niche.strip():
+            st.warning("Enter your channel niche.")
+
+        else:
+
+            prompt = f"""
+You are a YouTube Shorts content strategist.
+
+Generate exactly 10 original video ideas.
+
+Channel niche: {niche}
+Target audience: USA
 
 For each idea provide:
-- A catchy title
-- A 1-3 second hook
-- A short story or video concept
-- A simple scene-by-scene outline
-- An ending that encourages comments or rewatching
-- Three relevant hashtags
 
-Make each idea distinct, engaging and suitable for short-form video.
-Do not promise virality or copy existing videos.
+1. Catchy title.
+2. First 2-second hook.
+3. Short video concept.
+4. Scene outline.
+5. Funny or surprising ending.
+6. Comment engagement question.
+
+Use natural American English.
+Make all 10 ideas different.
+Do not promise viral results.
 """
-            with st.spinner("Finding five creative ideas..."):
+
+            with st.spinner("Generating ideas..."):
                 result = ask_gemini(prompt)
-            show_result(result)
+
+            display_result(result, "viral_shorts_ideas.txt")
+
+
+# ==================================================
+# TAB 5: SEO AND TITLES
+# ==================================================
+
+with tab5:
+
+    st.header("🔍 YouTube SEO & Title Generator")
+
+    seo_topic = st.text_input(
+        "Enter Video Topic",
+        placeholder="Example: Scary night in a haunted house"
+    )
+
+    if st.button("🔍 Generate SEO", key="seo"):
+
+        if not seo_topic.strip():
+            st.warning("Enter a video topic.")
+
+        else:
+
+            prompt = f"""
+You are a professional YouTube SEO expert.
+
+Video topic: {seo_topic}
+Target audience: USA
+
+Generate:
+
+1. 10 attractive YouTube titles.
+2. SEO-friendly description.
+3. 20 relevant keywords.
+4. 15 relevant hashtags.
+5. Thumbnail text ideas.
+6. Three thumbnail visual prompts.
+
+Use natural American English.
+Keep titles accurate and not misleading.
+"""
+
+            with st.spinner("Generating SEO..."):
+                result = ask_gemini(prompt)
+
+            display_result(result, "youtube_seo.txt")
+
+
+# ---------------- FOOTER ----------------
 
 st.divider()
+
 st.caption(
-    "Note: This app generates text and visual prompts. "
-    "It does not render or export actual video files."
+    "Viral YouTube Creator Tool | Powered by Gemini AI"
 )
-  
+
+st.caption(
+    "This app generates text and AI video prompts. "
+    "It does not directly create MP4 video files."
+)
+
+st.caption(
+    "Generated content should be reviewed before publishing."
+)
